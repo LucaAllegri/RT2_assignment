@@ -11,14 +11,37 @@ public:
 
         action_client_->wait_for_action_server();
 
+        std::thread(&RobotActionClient::input_loop, this).detach();
+
+    }
+
+private:
+
+    void send_goal(float x_value){
         auto goal_msg = Movement::Goal();
-        goal_msg.goal_position = {2.0};
+        goal_msg.goal_position = {x_value};
 
         action_client_->async_send_goal(goal_msg);
     }
 
-private:
+    void input_loop(){
+        while (rclcpp::ok()){
+            std::cout << "Insert x Goal: ";
+            if (!(std::cin >> x_input)) {
+                std::cout << "Invalid value input for x Goal.\n";
+                std::cin.clear();
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            }
+
+            send_goal(x_input);
+        }
+    }
+
+    //CLIENT
     rclcpp_action::Client<Movement>::SharedPtr action_client_;
+
+    //VARIABLES
+    float x_input;
 };
 
 int main(int argc, char ** argv){
