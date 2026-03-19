@@ -61,6 +61,21 @@ class RobotActionServer: public rclcpp::Node{
             rclcpp::Rate rate(10);
 
             while (rclcpp::ok() && current_x_ < target_x){
+
+                // CHECK CANCEL
+                if (goal_handle->is_canceling()) {
+
+                    velocity.linear.x = 0.0;
+                    robot_vel_pub->publish(velocity);
+
+                    result->final_position = {current_x_};
+                    goal_handle->canceled(result);
+
+                    RCLCPP_INFO(this->get_logger(), "Goal canceled!");
+
+                    return;
+                }
+
                 robot_vel_pub->publish(velocity);
 
                 feedback->current_position = {current_x_};
@@ -68,15 +83,6 @@ class RobotActionServer: public rclcpp::Node{
 
                 rate.sleep();
             }
-
-            // STOP robot
-            velocity.linear.x = 0.0;
-            robot_vel_pub->publish(velocity);
-
-            result->final_position = {current_x_};
-            goal_handle->succeed(result);
-
-            RCLCPP_INFO(this->get_logger(), "Goal raggiunto!");
         }
 
         void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
