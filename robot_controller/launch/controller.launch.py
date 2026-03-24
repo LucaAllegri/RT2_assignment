@@ -3,6 +3,8 @@ from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+from launch_ros.actions import ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
 import os
 
 def generate_launch_description():
@@ -35,8 +37,28 @@ def generate_launch_description():
         prefix='xterm -title "ACTION SERVER" -e',
     )
 
+    container = ComposableNodeContainer(
+            name='robot_container',
+            namespace='',
+            package='rclcpp_components',
+            executable='component_container',
+            composable_node_descriptions=[
+                ComposableNode(
+                    package='robot_controller',
+                    plugin='robot_controller::RobotActionClient',
+                    name='client',
+                    ),
+                    
+                ComposableNode(
+                    package='robot_controller',
+                    plugin='robot_controller::RobotActionServer',
+                    name='server',
+                    )
+            ],
+            output='screen',
+    )
+
     return LaunchDescription([
         gazebo_launch,
-        user_node,
-        server_node,
+        container,
     ])

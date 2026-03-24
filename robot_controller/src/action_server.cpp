@@ -3,115 +3,110 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "action_interfaces/action/movement.hpp"
+#include "rclcpp_components/register_node_macro.hpp"
 #include <math.h>
+
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-class RobotActionServer: public rclcpp::Node{
-    public:
-        using Movement = action_interfaces::action::Movement;
-        using GoalHandleMovement = rclcpp_action::ServerGoalHandle<Movement>;
+namespace robot_controller{
 
-        RobotActionServer(): Node("robot_action_server"){
+    class RobotActionServer: public rclcpp::Node{
+        public:
+            using Movement = action_interfaces::action::Movement;
+            using GoalHandleMovement = rclcpp_action::ServerGoalHandle<Movement>;
 
-            //PUBLISHERS
-            robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-            
-            //SUBSCRIBERS
-            odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&RobotActionServer::odom_callback, this, _1));
-            
-            //ACTION
-            action_server_ = rclcpp_action::create_server<Movement>(
-                this,
-                "movement",
-                std::bind(&RobotActionServer::handle_goal, this, _1, _2),
-                std::bind(&RobotActionServer::handle_cancel, this, _1),
-                std::bind(&RobotActionServer::handle_accepted, this, _1));
+            explicit RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
+                //PUBLISHERS
+                robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+                
+                //SUBSCRIBERS
+                odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&RobotActionServer::odom_callback, this, _1));
+                
+                //ACTION
+                action_server_ = rclcpp_action::create_server<Movement>(
+                    this,
+                    "movement",
+                    std::bind(&RobotActionServer::handle_goal, this, _1, _2),
+                    std::bind(&RobotActionServer::handle_cancel, this, _1),
+                    std::bind(&RobotActionServer::handle_accepted, this, _1));
 
-        }
+            }
 
-    private:
+        private:
 
-        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID &, std::shared_ptr<const Movement::Goal> goal){
-            RCLCPP_INFO(this->get_logger(), "Received Goal: %.2f", goal->goal_position[0]);
+            rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID &, std::shared_ptr<const Movement::Goal> goal){
+                RCLCPP_INFO(this->get_logger(), "Received Goal: %.2f", goal->goal_position[0]);
 
-            return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
-        }
+                return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+            }
 
-        rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleMovement> goal_handle){
-            RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
-            (void)goal_handle;
-            return rclcpp_action::CancelResponse::ACCEPT;
-        }
+            rclcpp_action::CancelResponse handle_cancel(const std::shared_ptr<GoalHandleMovement> goal_handle){
+                RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
+                (void)goal_handle;
+                return rclcpp_action::CancelResponse::ACCEPT;
+            }
 
-        void handle_accepted(const std::shared_ptr<GoalHandleMovement> goal_handle){
-            // this needs to return quickly to avoid blocking the executor, so spin up a new thread
-            std::thread{std::bind(&RobotActionServer::execute, this, _1), goal_handle}.detach();
-        }
+            void handle_accepted(const std::shared_ptr<GoalHandleMovement> goal_handle){
+                // this needs to return quickly to avoid blocking the executor, so spin up a new thread
+                std::thread{std::bind(&RobotActionServer::execute, this, _1), goal_handle}.detach();
+            }
 
-        void execute(const std::shared_ptr<GoalHandleMovement> goal_handle){
-            auto goal = goal_handle->get_goal();
-            auto feedback = std::make_shared<Movement::Feedback>();
-            auto result = std::make_shared<Movement::Result>();
+            void execute(const std::shared_ptr<GoalHandleMovement> goal_handle){
+                auto goal = goal_handle->get_goal();
+                auto feedback = std::make_shared<Movement::Feedback>();
+                auto result = std::make_shared<Movement::Result>();
 
-            double target_x = goal->goal_position[0];
+                double target_x = goal->goal_position[0];
 
-            velocity.linear.x = 1.0;
+                velocity.linear.x = 1.0;
 
-            rclcpp::Rate rate(10);
+                rclcpp::Rate rate(10);
 
-            while (rclcpp::ok() && current_x_ < target_x){
+                while (rclcpp::ok() && current_x_ < target_x){
 
-                // CHECK CANCEL
-                if (goal_handle->is_canceling()) {
+                    // CHECK CANCEL
+                    if (goal_handle->is_canceling()) {
 
-                    velocity.linear.x = 0.0;
+                        velocity.linear.x = 0.0;
+                        robot_vel_pub->publish(velocity);
+
+                        result->final_position = {current_x_};
+                        goal_handle->canceled(result);
+
+                        RCLCPP_INFO(this->get_logger(), "Goal canceled!");
+
+                        return;
+                    }
+
                     robot_vel_pub->publish(velocity);
 
-                    result->final_position = {current_x_};
-                    goal_handle->canceled(result);
+                    feedback->current_position = {current_x_};
+                    goal_handle->publish_feedback(feedback);
 
-                    RCLCPP_INFO(this->get_logger(), "Goal canceled!");
-
-                    return;
+                    rate.sleep();
                 }
-
-                robot_vel_pub->publish(velocity);
-
-                feedback->current_position = {current_x_};
-                goal_handle->publish_feedback(feedback);
-
-                rate.sleep();
             }
-        }
 
-        void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
-            current_x_ = msg->pose.pose.position.x;
-        }
+            void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
+                current_x_ = msg->pose.pose.position.x;
+            }
 
-        //PUBLISHER
-        rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr robot_vel_pub;
+            //PUBLISHER
+            rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr robot_vel_pub;
 
-        //SUBSCRIBERS
-        rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-        
-        //ACTION
-        rclcpp_action::Server<Movement>::SharedPtr action_server_;
+            //SUBSCRIBERS
+            rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+            
+            //ACTION
+            rclcpp_action::Server<Movement>::SharedPtr action_server_;
 
-        //VARIABLES
-        geometry_msgs::msg::Twist velocity;
-        float current_x_;
-        
-};
-
-
-int main(int argc, char ** argv){
-    rclcpp::init(argc, argv);
-
-    // Crea e lancia il nodo server
-    auto node = std::make_shared<RobotActionServer>();
-    rclcpp::spin(node);
-
-    rclcpp::shutdown();
-    return 0;
+            //VARIABLES
+            geometry_msgs::msg::Twist velocity;
+            float current_x_;
+            
+    };
 }
+
+RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionServer)
+
