@@ -20,24 +20,30 @@ if(BUILD_TESTING)
   find_package(nav_msgs REQUIRED)
   find_package(rclcpp_components REQUIRED)
 
-  add_library(action_client SHARED src/action_client.cpp)
+  #add_library(action_client SHARED src/action_client.cpp)
   add_library(action_server SHARED src/action_server.cpp)
   #add_executable(manual_composition src/manual_composition.cpp)
+  add_executable(action_client src/action_client.cpp)
 
-  ament_target_dependencies(action_client rclcpp rclcpp_action action_interfaces rclcpp_components)
+  ament_target_dependencies(action_client rclcpp rclcpp_action action_interfaces)
   ament_target_dependencies(action_server rclcpp rclcpp_action geometry_msgs nav_msgs action_interfaces rclcpp_components)
 
-  rclcpp_components_register_node(action_client PLUGIN "robot_controller::RobotActionClient" EXECUTABLE action_client_exe) 
+  #rclcpp_components_register_node(action_client PLUGIN "robot_controller::RobotActionClient" EXECUTABLE action_client_exe) 
   rclcpp_components_register_node(action_server PLUGIN "robot_controller::RobotActionServer" EXECUTABLE action_server_exe) 
 
-  ament_export_targets(export_${PROJECT_NAME}_action_client)
+  #ament_export_targets(export_${PROJECT_NAME}_action_client)
   ament_export_targets(export_${PROJECT_NAME}_action_server)
 
-  install (TARGETS action_client
-          EXPORT export_${PROJECT_NAME}_action_client
-          ARCHIVE DESTINATION lib
-          LIBRARY DESTINATION lib
-          RUNTIME DESTINATION bin)
+  #install (TARGETS action_client
+  #        EXPORT export_${PROJECT_NAME}_action_client
+  #        ARCHIVE DESTINATION lib
+  #        LIBRARY DESTINATION lib
+  #        RUNTIME DESTINATION bin)
+
+  install(TARGETS
+    action_client
+    DESTINATION lib/${PROJECT_NAME}
+  )
 
   install (TARGETS action_server
           EXPORT export_${PROJECT_NAME}_action_server

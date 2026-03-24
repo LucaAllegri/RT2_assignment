@@ -43,11 +43,11 @@ def generate_launch_description():
             package='rclcpp_components',
             executable='component_container',
             composable_node_descriptions=[
-                ComposableNode(
-                    package='robot_controller',
-                    plugin='robot_controller::RobotActionClient',
-                    name='client',
-                    ),
+                #ComposableNode(
+                #    package='robot_controller',
+                #    plugin='robot_controller::RobotActionClient',
+                #    name='client',
+                #    ),
                     
                 ComposableNode(
                     package='robot_controller',
@@ -60,5 +60,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         gazebo_launch,
+        user_node,
         container,
     ])
