@@ -70,10 +70,9 @@ class RobotActionClient : public rclcpp::Node{
                 return;
             }
 
-            if (remaining > 1.5) {
+            if (remaining <= 0.3) {
                 cancel_sent_ = true;
-                RCLCPP_WARN(this->get_logger(),
-                            "Remaining angle less than 1.0, cancelling goal...");
+                RCLCPP_WARN(this->get_logger(),"GOAL reached");
 
                 action_client_->async_cancel_goal(current_goal_handle_);
             }
@@ -83,7 +82,7 @@ class RobotActionClient : public rclcpp::Node{
         void result_callback(const GoalHandleTarget::WrappedResult & result){
 
             RCLCPP_INFO(this->get_logger(),"Result status=%d, delta=%f",result.code,result.result->final_pose[0]);
-            
+
             //rclcpp::shutdown();
         }
 

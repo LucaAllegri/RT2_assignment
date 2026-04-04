@@ -132,14 +132,17 @@ using namespace std::chrono_literals;
                     t.transform.translation.y,
                     t.transform.translation.x);
 
-
                     vel.linear.x = scaleForwardSpeed * sqrt(
                     pow(t.transform.translation.x, 2) +
                     pow(t.transform.translation.y, 2));
 
                     robot_vel_pub->publish(vel);
 
-                    feedback->current_pose = {t.transform.translation.x, t.transform.translation.y, 0.0};
+                    double distance = sqrt(
+                        pow(t.transform.translation.x, 2) +
+                        pow(t.transform.translation.y, 2));
+
+                    feedback->current_pose = {distance, 0.0, 0.0};
                     goal_handle->publish_feedback(feedback);
 
                     rate.sleep();
