@@ -1,0 +1,5 @@
+float64[3] goal_pose
+---
+float64[3] final_pose
+---
+float64[3] current_pose
