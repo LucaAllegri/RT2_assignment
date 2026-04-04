@@ -12,10 +12,11 @@ class RobotActionClient : public rclcpp::Node{
         using GoalHandleTarget = rclcpp_action::ClientGoalHandle<Target>;
 
         RobotActionClient() : Node("robot_action_client"), cancel_sent_(false){
-            action_client_ = rclcpp_action::create_client<Target>(this, "target");
-        }
 
-        goal_frame_broad_pub_ = this->create_publisher<message_custom::msg::GoalFrame>("/goal_frame", 10);
+            action_client_ = rclcpp_action::create_client<Target>(this, "target");
+
+            goal_frame_broad_pub_ = this->create_publisher<message_custom::msg::GoalFrame>("/goal_frame", 10);
+        }
 
         void send_goal(double x_goal, double y_goal, double theta_goal){
             if (!action_client_->wait_for_action_server()) {
@@ -29,12 +30,11 @@ class RobotActionClient : public rclcpp::Node{
             goal_msg.goal_pose = {x_goal, y_goal, theta_goal};
 
             message_custom::msg::GoalFrame frame_to_broad;
-            frame_to_broad.name_frame = "GoalFrame";
             frame_to_broad.x_goal = x_goal;
             frame_to_broad.y_goal = y_goal;
             frame_to_broad.theta_goal = theta_goal;
 
-            goal_frame_broad_pub_ -> publish(frame_to_broad)
+            goal_frame_broad_pub_-> publish(frame_to_broad);
 
             using namespace std::placeholders;
 
@@ -81,8 +81,9 @@ class RobotActionClient : public rclcpp::Node{
         }
 
         void result_callback(const GoalHandleTarget::WrappedResult & result){
-            RCLCPP_INFO(this->get_logger(),"Result status=%d, delta=%f",result.code,result.result->final_pose[0]);
 
+            RCLCPP_INFO(this->get_logger(),"Result status=%d, delta=%f",result.code,result.result->final_pose[0]);
+            
             //rclcpp::shutdown();
         }
 

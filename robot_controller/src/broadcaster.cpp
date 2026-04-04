@@ -13,6 +13,9 @@ class FramePublisher : public rclcpp::Node{
     public:
         FramePublisher() : Node("goal_tf2_frame_publisher"){
 
+            //PARAMETER
+            goal_frame_ = this->declare_parameter<std::string>("frame_name", "goal_frame");
+
             // Initialize the transform broadcaster
             tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
@@ -22,8 +25,8 @@ class FramePublisher : public rclcpp::Node{
                 // Read message content and assign it to
                 // corresponding tf variables
                 t.header.stamp = this->get_clock()->now();
-                t.header.frame_id = "world";
-                t.child_frame_id = msg->name_frame;
+                t.header.frame_id = "base_footprint";
+                t.child_frame_id = goal_frame_;
 
                 // Turtle only exists in 2D, thus we get x and y translation
                 // coordinates from the message and set the z coordinate to 0
@@ -49,6 +52,9 @@ class FramePublisher : public rclcpp::Node{
         }
 
     private:
+
+        //PARAMETER
+        std::string goal_frame_;
     
         //SUBRSCRIBER
         rclcpp::Subscription<message_custom::msg::GoalFrame>::SharedPtr goal_frame_sub_;

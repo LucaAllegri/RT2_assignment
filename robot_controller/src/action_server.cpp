@@ -28,19 +28,19 @@ using std::placeholders::_2;
 
 using namespace std::chrono_literals;
 
-namespace robot_controller{
+//namespace robot_controller{
 
     class RobotActionServer: public rclcpp::Node{
         public:
             using Target = action_interfaces::action::Target;
             using GoalHandleTarget = rclcpp_action::ServerGoalHandle<Target>;
 
-            explicit RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
+            RobotActionServer() : Node("robot_action_server"){
+            //explicit RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
                 //PUBLISHERS
                 robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
                 
                 //SUBSCRIBERS
-                odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&RobotActionServer::odom_callback, this, _1));
                 
                 //ACTION
                 action_server_ = rclcpp_action::create_server<Target>(
@@ -55,11 +55,10 @@ namespace robot_controller{
                 tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
                 tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-                //TIMER
-                timer_ = this->create_wall_timer(1s, [this]() {return this->on_timer();});
+                //TIMER 
 
                 //VARIABLES
-                target_frame_ = this->declare_parameter<std::string>("target_frame", "turtle1");
+
             }
 
         private:
@@ -81,14 +80,17 @@ namespace robot_controller{
                 std::thread{std::bind(&RobotActionServer::execute, this, _1), goal_handle}.detach();
             }
 
+            void stop_robot(){
+                velocity.linear.x = 0.0;
+                velocity.angular.z = 0.0;
+                robot_vel_pub->publish(velocity);
+            }
+
+
             void execute(const std::shared_ptr<GoalHandleTarget> goal_handle){
                 auto goal = goal_handle->get_goal();
                 auto feedback = std::make_shared<Target::Feedback>();
                 auto result = std::make_shared<Target::Result>();
-
-                double target_x = goal->goal_pose[0];
-                double target_y = goal->goal_pose[1];
-                double target_theta = goal->goal_pose[2];
 
                 velocity.linear.x = 1.0;
 
@@ -99,10 +101,7 @@ namespace robot_controller{
                     // CHECK CANCEL
                     if (goal_handle->is_canceling()) {
 
-                        velocity.linear.x = 0.0;
-                        robot_vel_pub->publish(velocity);
-
-                        result->final_pose = {current_x_, current_y_, current_theta_};
+                        stop_robot();
                         goal_handle->canceled(result);
 
                         RCLCPP_INFO(this->get_logger(), "Goal canceled!");
@@ -110,68 +109,43 @@ namespace robot_controller{
                         return;
                     }
 
-                    robot_vel_pub->publish(velocity);
+                    geometry_msgs::msg::TransformStamped t;
 
-                    feedback->current_pose = {current_x_};
+                    // Look up for the transformation between target_frame and turtle2 frames
+                    // and send velocity commands for turtle2 to reach target_frame
+                    try {
+                    t = tf_buffer_->lookupTransform(
+                        "base_link",
+                        "goal_frame",
+                        tf2::TimePointZero);
+                    } catch (const tf2::TransformException & ex) {
+                        RCLCPP_WARN( this->get_logger(), "Not transform: %s",ex.what());
+                        rate.sleep();
+                        continue;
+                    }
+
+                    static const double scaleRotationRate = 1.0;
+                    static const double scaleForwardSpeed = 0.5;
+                    geometry_msgs::msg::Twist vel;
+
+                    vel.angular.z = scaleRotationRate * atan2(
+                    t.transform.translation.y,
+                    t.transform.translation.x);
+
+
+                    vel.linear.x = scaleForwardSpeed * sqrt(
+                    pow(t.transform.translation.x, 2) +
+                    pow(t.transform.translation.y, 2));
+
+                    robot_vel_pub->publish(vel);
+
+                    feedback->current_pose = {t.transform.translation.x, t.transform.translation.y, 0.0};
                     goal_handle->publish_feedback(feedback);
 
                     rate.sleep();
                 }
             }
 
-            void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
-                geometry_msgs::msg::TransformStamped t;
-
-                t.transform.translation.x = msg->pose.pose.position.x;
-                t.transform.translation.y = msg->pose.pose.position.y;
-                t.transform.translation.z = 0.0;
-
-                tf2::Quaternion q;
-                q.setRPY(0, 0, msg->pose.pose.orientation.z);
-                t.transform.rotation.x = q.x();
-                t.transform.rotation.y = q.y();
-                t.transform.rotation.z = q.z();
-                t.transform.rotation.w = q.w();
-
-            }
-
-            void on_timer(){
-                // Store frame names in variables that will be used to
-                // compute transformations
-                std::string fromFrameRel = target_frame_.c_str();
-                std::string toFrameRel = "turtle2";
-
-                geometry_msgs::msg::TransformStamped t;
-
-                // Look up for the transformation between target_frame and turtle2 frames
-                // and send velocity commands for turtle2 to reach target_frame
-                try {
-                t = tf_buffer_->lookupTransform(
-                    toFrameRel, this->get_clock()->now(),
-                    fromFrameRel, this->get_clock()->now() - rclcpp::Duration(5, 0),
-                    "world", 50ms);
-                } catch (const tf2::TransformException & ex) {
-                RCLCPP_INFO(
-                    this->get_logger(), "Could not transform %s to %s: %s",
-                    toFrameRel.c_str(), fromFrameRel.c_str(), ex.what());
-                return;
-                }
-
-                geometry_msgs::msg::Twist msg;
-
-                static const double scaleRotationRate = 1.0;
-                msg.angular.z = scaleRotationRate * atan2(
-                t.transform.translation.y,
-                t.transform.translation.x);
-
-                static const double scaleForwardSpeed = 0.5;
-                msg.linear.x = scaleForwardSpeed * sqrt(
-                pow(t.transform.translation.x, 2) +
-                pow(t.transform.translation.y, 2));
-
-                robot_vel_pub->publish(msg);
-
-            }
 
             //PUBLISHER
             rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr robot_vel_pub{nullptr};
@@ -188,18 +162,20 @@ namespace robot_controller{
 
             //VARIABLES
             geometry_msgs::msg::Twist velocity;
-            float current_x_;
-            float current_y_;
-            float current_theta_;
 
             //TIMER 
-            rclcpp::TimerBase::SharedPtr timer_{nullptr};
 
             //VARIABLES
-            std::string target_frame_;
             
     };
+//}
+
+int main(int argc, char * argv[]){
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<RobotActionServer>());
+    rclcpp::shutdown();
+    return 0;
 }
 
-RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionServer)
+//RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionServer)
 

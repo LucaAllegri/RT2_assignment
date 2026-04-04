@@ -38,10 +38,13 @@ def generate_launch_description():
     )
 
     #BROADCASTER NODE
-    server_node = Node(
+    broadcaster_node = Node(
         package='robot_controller',
         executable='broadcaster',
         name='broadcaster',
+        parameters=[
+                {'frame_name': 'goal_frame'}
+            ]
     )
 
     container = ComposableNodeContainer(
@@ -69,4 +72,5 @@ def generate_launch_description():
         gazebo_launch,
         client_node,
         server_node,
+        broadcaster_node,
     ])
