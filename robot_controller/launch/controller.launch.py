@@ -19,8 +19,8 @@ def generate_launch_description():
         )
     )
     
-    #UI NODE
-    user_node = Node(
+    #ACTION CLIENT NODE
+    client_node = Node(
         package='robot_controller',
         executable='action_client',
         name='client',
@@ -28,13 +28,20 @@ def generate_launch_description():
         prefix='xterm -title "ACTION CLIENT" -e'
     )
     
-    #DISTANCE NODE
+    #ACTION SERVER NODE
     server_node = Node(
         package='robot_controller',
         executable='action_server',
         name='server',
         output='screen', 
         prefix='xterm -title "ACTION SERVER" -e',
+    )
+
+    #BROADCASTER NODE
+    server_node = Node(
+        package='robot_controller',
+        executable='broadcaster',
+        name='broadcaster',
     )
 
     container = ComposableNodeContainer(
@@ -60,6 +67,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         gazebo_launch,
-        user_node,
-        container,
+        client_node,
+        server_node,
     ])
