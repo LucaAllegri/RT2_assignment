@@ -115,7 +115,7 @@ using namespace std::chrono_literals;
                     // and send velocity commands for turtle2 to reach target_frame
                     try {
                     t = tf_buffer_->lookupTransform(
-                        "base_footprint",
+                        "base_link",
                         "goal_frame",
                         tf2::TimePointZero);
                     } catch (const tf2::TransformException & ex) {
@@ -126,23 +126,22 @@ using namespace std::chrono_literals;
 
                     static const double scaleRotationRate = 1.0;
                     static const double scaleForwardSpeed = 0.5;
-                    geometry_msgs::msg::Twist vel;
 
-                    vel.angular.z = scaleRotationRate * atan2(
+                    velocity.angular.z = scaleRotationRate * atan2(
                     t.transform.translation.y,
                     t.transform.translation.x);
 
-                    vel.linear.x = scaleForwardSpeed * sqrt(
+                    velocity.linear.x = scaleForwardSpeed * sqrt(
                     pow(t.transform.translation.x, 2) +
                     pow(t.transform.translation.y, 2));
 
-                    robot_vel_pub->publish(vel);
+                    robot_vel_pub->publish(velocity);
 
                     double distance = sqrt(
                         pow(t.transform.translation.x, 2) +
                         pow(t.transform.translation.y, 2));
 
-                    feedback->current_pose = {distance, 0.0, 0.0};
+                    feedback->current_pose = {t.transform.translation.x, t.transform.translation.y, 0.0};
                     goal_handle->publish_feedback(feedback);
 
                     rate.sleep();

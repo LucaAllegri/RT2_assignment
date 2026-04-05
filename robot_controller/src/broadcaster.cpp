@@ -71,7 +71,7 @@ class FramesPublisher : public rclcpp::Node{
 
             t1.transform.rotation = msg->pose.pose.orientation;
 
-            tf_broadcaster_->sendTransform(t1);
+            static_broadcaster_->sendTransform(t1);
         }
 
         //PARAMETER

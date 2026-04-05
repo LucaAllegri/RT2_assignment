@@ -62,15 +62,16 @@ class RobotActionClient : public rclcpp::Node{
         }
 
         void feedback_callback(GoalHandleTarget::SharedPtr,const std::shared_ptr<const Target::Feedback> feedback){
-            double remaining = feedback->current_pose[0];
+            double remaining_x = feedback->current_pose[0];
+            double remaining_y = feedback->current_pose[1];
 
-            RCLCPP_INFO(this->get_logger(),"Feedback: remaining angle = %f",remaining);
+            RCLCPP_INFO(this->get_logger(),"Feedback: remaining x = %f, remaining y = %f",remaining_x, remaining_y);
 
             if (cancel_sent_ || !current_goal_handle_) {
                 return;
             }
 
-            if (remaining <= 0.3) {
+            if (remaining_x <= 0.004 && remaining_y <= 0.004) {
                 cancel_sent_ = true;
                 RCLCPP_WARN(this->get_logger(),"GOAL reached");
 
