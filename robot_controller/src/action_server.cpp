@@ -64,7 +64,7 @@ using namespace std::chrono_literals;
         private:
 
             rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID &, std::shared_ptr<const Target::Goal> goal){
-                RCLCPP_INFO(this->get_logger(), "Received Goal: %.2f", goal->goal_pose[0]);
+                RCLCPP_INFO(this->get_logger(), "Received Goal: %.2f, %.2f, %.2f", goal->goal_pose[0], goal->goal_pose[1], goal->goal_pose[2]);
 
                 return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
             }
@@ -115,7 +115,7 @@ using namespace std::chrono_literals;
                     // and send velocity commands for turtle2 to reach target_frame
                     try {
                     t = tf_buffer_->lookupTransform(
-                        "base_link",
+                        "base_footprint",
                         "goal_frame",
                         tf2::TimePointZero);
                     } catch (const tf2::TransformException & ex) {

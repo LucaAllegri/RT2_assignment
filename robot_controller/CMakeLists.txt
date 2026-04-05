@@ -31,7 +31,7 @@ if(BUILD_TESTING)
 
   ament_target_dependencies(action_client rclcpp rclcpp_action action_interfaces message_custom)
   ament_target_dependencies(action_server rclcpp rclcpp_action rclcpp_components geometry_msgs nav_msgs action_interfaces message_custom tf2 tf2_ros)
-  ament_target_dependencies(broadcaster rclcpp geometry_msgs message_custom tf2 tf2_ros)
+  ament_target_dependencies(broadcaster rclcpp geometry_msgs message_custom tf2 tf2_ros nav_msgs)
 
   #rclcpp_components_register_node(action_client PLUGIN "robot_controller::RobotActionClient" EXECUTABLE action_client_exe) 
   #rclcpp_components_register_node(action_server PLUGIN "robot_controller::RobotActionServer" EXECUTABLE action_server_exe) 
