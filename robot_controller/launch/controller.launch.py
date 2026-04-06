@@ -1,11 +1,17 @@
 from launch import LaunchDescription
+
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+import os
+
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
-import os
+
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+
+from launch_ros.actions import Node
 
 def generate_launch_description():
 
@@ -25,7 +31,7 @@ def generate_launch_description():
         executable='action_client',
         name='client',
         output='screen',
-        prefix='xterm -title "ACTION CLIENT" -e'
+        prefix='xterm -title "ACTION CLIENT" -e',
     )
     
     #ACTION SERVER NODE
@@ -35,6 +41,10 @@ def generate_launch_description():
         name='server',
         output='screen', 
         prefix='xterm -title "ACTION SERVER" -e',
+        parameters=[{
+                'target_frame_name': LaunchConfiguration('target_frame_name'),
+                'world_frame_name': LaunchConfiguration('world_frame_name')
+            }]
     )
 
     #BROADCASTER NODE
@@ -42,9 +52,10 @@ def generate_launch_description():
         package='robot_controller',
         executable='broadcaster',
         name='broadcaster',
-        parameters=[
-                {'frame_name': 'goal_frame'}
-            ]
+        parameters=[{
+                'target_frame_name': LaunchConfiguration('target_frame_name'),
+                'moved_frame_name': LaunchConfiguration('moved_frame_name')
+            }]
     )
 
     container = ComposableNodeContainer(
@@ -69,6 +80,25 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            'world_frame_name', 
+            default_value='odom',
+            description='World frame name'
+        ),
+
+        DeclareLaunchArgument(
+            'moved_frame_name', 
+            default_value='base_link',
+            description='Moved frame name'
+        ),
+
+        DeclareLaunchArgument(
+            'target_frame_name', 
+            default_value='goal_frame',
+            description='Target frame name'
+        ),
+
+
         gazebo_launch,
         client_node,
         server_node,

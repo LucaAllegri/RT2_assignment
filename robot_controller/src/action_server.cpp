@@ -37,10 +37,13 @@ using namespace std::chrono_literals;
 
             RobotActionServer() : Node("robot_action_server"){
             //explicit RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
+                
                 //PUBLISHERS
                 robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-                
-                //SUBSCRIBERS
+
+                //PARAMETERS
+                goal_frame_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
+                moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_link");
                 
                 //ACTION
                 action_server_ = rclcpp_action::create_server<Target>(
@@ -54,11 +57,6 @@ using namespace std::chrono_literals;
                 //LISTENER
                 tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
                 tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
-                //TIMER 
-
-                //VARIABLES
-
             }
 
         private:
@@ -115,8 +113,8 @@ using namespace std::chrono_literals;
                     // and send velocity commands for turtle2 to reach target_frame
                     try {
                     t = tf_buffer_->lookupTransform(
-                        "base_link",
-                        "goal_frame",
+                        moved_frame_,
+                        goal_frame_,
                         tf2::TimePointZero);
                     } catch (const tf2::TransformException & ex) {
                         RCLCPP_WARN( this->get_logger(), "Not transform: %s",ex.what());
@@ -137,9 +135,10 @@ using namespace std::chrono_literals;
 
                     robot_vel_pub->publish(velocity);
 
-                    double distance = sqrt(
+                    /*double distance = sqrt(
                         pow(t.transform.translation.x, 2) +
                         pow(t.transform.translation.y, 2));
+                    */
 
                     feedback->current_pose = {t.transform.translation.x, t.transform.translation.y, 0.0};
                     goal_handle->publish_feedback(feedback);
@@ -151,9 +150,6 @@ using namespace std::chrono_literals;
 
             //PUBLISHER
             rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr robot_vel_pub{nullptr};
-
-            //SUBSCRIBERS
-            rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
             
             //ACTION
             rclcpp_action::Server<Target>::SharedPtr action_server_;
@@ -165,10 +161,9 @@ using namespace std::chrono_literals;
             //VARIABLES
             geometry_msgs::msg::Twist velocity;
 
-            //TIMER 
-
-            //VARIABLES
-            
+            //PARAMETERS
+            std::string moved_frame_;
+            std::string goal_frame_;
     };
 //}
 
