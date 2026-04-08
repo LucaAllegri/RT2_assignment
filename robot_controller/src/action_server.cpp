@@ -6,20 +6,15 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 
-#include "nav_msgs/msg/odometry.hpp"
-
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
-
 #include "tf2/exceptions.hpp"
 #include "tf2_ros/transform_listener.hpp"
 #include "tf2_ros/buffer.hpp"
-#include "tf2/LinearMath/Quaternion.hpp"
 
 #include "action_interfaces/action/target.hpp"
-#include "message_custom/msg/goal_frame.hpp"
 
 #include <math.h>
 
@@ -28,15 +23,15 @@ using std::placeholders::_2;
 
 using namespace std::chrono_literals;
 
-//namespace robot_controller{
+namespace robot_controller{
 
     class RobotActionServer: public rclcpp::Node{
         public:
             using Target = action_interfaces::action::Target;
             using GoalHandleTarget = rclcpp_action::ServerGoalHandle<Target>;
 
-            RobotActionServer() : Node("robot_action_server"){
-            //explicit RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
+            //RobotActionServer() : Node("robot_action_server"){
+            explicit RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
                 
                 //PUBLISHERS
                 robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
@@ -125,23 +120,32 @@ using namespace std::chrono_literals;
                     static const double scaleRotationRate = 1.0;
                     static const double scaleForwardSpeed = 0.5;
 
+                    float x_ = t.transform.translation.x;
+                    float y_ = t.transform.translation.y;
+
                     velocity.angular.z = scaleRotationRate * atan2(
-                    t.transform.translation.y,
-                    t.transform.translation.x);
+                    y_,
+                    x_);
 
                     velocity.linear.x = scaleForwardSpeed * sqrt(
-                    pow(t.transform.translation.x, 2) +
-                    pow(t.transform.translation.y, 2));
+                    pow(x_, 2) +
+                    pow(y_, 2));
 
                     robot_vel_pub->publish(velocity);
 
-                    /*double distance = sqrt(
-                        pow(t.transform.translation.x, 2) +
-                        pow(t.transform.translation.y, 2));
-                    */
-
-                    feedback->current_pose = {t.transform.translation.x, t.transform.translation.y, 0.0};
-                    goal_handle->publish_feedback(feedback);
+                    double distance = sqrt(
+                        pow(x_, 2) +
+                        pow(y_, 2));
+                    
+                    if (distance < 0.01) {
+                        stop_robot();
+                        result->final_pose={x_, y_, 0.0};
+                        goal_handle->succeed(result);
+                        return;
+                    }else{
+                        feedback->current_pose = {x_, y_, 0.0};
+                        goal_handle->publish_feedback(feedback);
+                    }
 
                     rate.sleep();
                 }
@@ -165,14 +169,14 @@ using namespace std::chrono_literals;
             std::string moved_frame_;
             std::string goal_frame_;
     };
-//}
+}
 
-int main(int argc, char * argv[]){
+/*int main(int argc, char * argv[]){
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<RobotActionServer>());
     rclcpp::shutdown();
     return 0;
-}
+}*/
 
-//RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionServer)
+RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionServer)
 

@@ -22,42 +22,49 @@ if(BUILD_TESTING)
   find_package(message_custom REQUIRED)
   find_package(tf2 REQUIRED)
   find_package(tf2_ros REQUIRED)
+  find_package(robot_controller REQUIRED)
 
-  #add_library(action_client SHARED src/action_client.cpp)
-  #add_library(action_server SHARED src/action_server.cpp)
-  add_executable(broadcaster src/broadcaster.cpp)
-  add_executable(action_client src/action_client.cpp)
-  add_executable(action_server src/action_server.cpp)
+  add_library(client_component SHARED src/action_client.cpp)
+  add_library(server_component SHARED src/action_server.cpp)
+  add_library(broadcaster_component SHARED src/broadcaster.cpp)
+  add_executable(main src/main.cpp)
 
-  ament_target_dependencies(action_client rclcpp rclcpp_action action_interfaces message_custom)
-  ament_target_dependencies(action_server rclcpp rclcpp_action rclcpp_components geometry_msgs nav_msgs action_interfaces message_custom tf2 tf2_ros)
-  ament_target_dependencies(broadcaster rclcpp geometry_msgs message_custom tf2 tf2_ros nav_msgs)
+  ament_target_dependencies(client_component rclcpp rclcpp_action rclcpp_components action_interfaces message_custom)
+  ament_target_dependencies(server_component rclcpp rclcpp_action rclcpp_components geometry_msgs action_interfaces tf2 tf2_ros)
+  ament_target_dependencies(broadcaster_component rclcpp rclcpp_components geometry_msgs message_custom tf2 tf2_ros nav_msgs)
+  ament_target_dependencies(main rclcpp robot_controller)
 
-  #rclcpp_components_register_node(action_client PLUGIN "robot_controller::RobotActionClient" EXECUTABLE action_client_exe) 
-  #rclcpp_components_register_node(action_server PLUGIN "robot_controller::RobotActionServer" EXECUTABLE action_server_exe) 
+  rclcpp_components_register_node(client_component PLUGIN "robot_controller::RobotActionClient" EXECUTABLE action_client_exe) 
+  rclcpp_components_register_node(server_component PLUGIN "robot_controller::RobotActionServer" EXECUTABLE action_server_exe) 
+  rclcpp_components_register_node(broadcaster_component PLUGIN "robot_controller::FramesPublisher" EXECUTABLE broadcaster_component_exe) 
 
-  #ament_export_targets(export_${PROJECT_NAME}_action_client)
-  #ament_export_targets(export_${PROJECT_NAME}_action_server)
+  ament_export_targets(export_${PROJECT_NAME}_client_component)
+  ament_export_targets(export_${PROJECT_NAME}_server_component)
+  ament_export_targets(export_${PROJECT_NAME}_broadcaster_component)
 
-  #install (TARGETS action_client
-  #        EXPORT export_${PROJECT_NAME}_action_client
-  #        ARCHIVE DESTINATION lib
-  #        LIBRARY DESTINATION lib
-  #        RUNTIME DESTINATION bin)
+  install (TARGETS client_component
+          EXPORT export_${PROJECT_NAME}_client_component
+          ARCHIVE DESTINATION lib
+          LIBRARY DESTINATION lib
+          RUNTIME DESTINATION bin)
+
+  install (TARGETS server_component
+          EXPORT export_${PROJECT_NAME}_server_component
+          ARCHIVE DESTINATION lib
+          LIBRARY DESTINATION lib
+          RUNTIME DESTINATION bin)
+
+  install (TARGETS broadcaster_component
+          EXPORT export_${PROJECT_NAME}_broadcaster_component
+          ARCHIVE DESTINATION lib
+          LIBRARY DESTINATION lib
+          RUNTIME DESTINATION bin)
+
 
   install(TARGETS
-    action_client
-    action_server
-    broadcaster
+    main
     DESTINATION lib/${PROJECT_NAME}
   )
-
-  #install (TARGETS action_server
-  #        EXPORT export_${PROJECT_NAME}_action_server
-  #        ARCHIVE DESTINATION lib
-  #        LIBRARY DESTINATION lib
-  #        RUNTIME DESTINATION bin)
-
 
 
   install( 

@@ -3,104 +3,100 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
+#include "rclcpp_components/register_node_macro.hpp"
+
 #include "action_interfaces/action/target.hpp"
+
 #include "message_custom/msg/goal_frame.hpp"
 
-class RobotActionClient : public rclcpp::Node{
-    public:
-        using Target = action_interfaces::action::Target;
-        using GoalHandleTarget = rclcpp_action::ClientGoalHandle<Target>;
 
-        RobotActionClient() : Node("robot_action_client"), cancel_sent_(false){
+namespace robot_controller{
 
-            action_client_ = rclcpp_action::create_client<Target>(this, "target");
+    class RobotActionClient : public rclcpp::Node{
+        public:
+            using Target = action_interfaces::action::Target;
+            using GoalHandleTarget = rclcpp_action::ClientGoalHandle<Target>;
 
-            goal_frame_broad_pub_ = this->create_publisher<message_custom::msg::GoalFrame>("/goal_frame", 10);
-        }
+            explicit RobotActionClient(const rclcpp::NodeOptions & options) : Node("robot_action_client", options), cancel_sent_(false){
 
-        void send_goal(double x_goal, double y_goal, double theta_goal){
-            if (!action_client_->wait_for_action_server()) {
-                RCLCPP_ERROR(this->get_logger(), "Action server not available");
-                return;
+                action_client_ = rclcpp_action::create_client<Target>(this, "target");
+
+                goal_frame_broad_pub_ = this->create_publisher<message_custom::msg::GoalFrame>("/goal_frame", 10);
             }
 
-            cancel_sent_ = false;
+            void send_goal(double x_goal, double y_goal, double theta_goal){
+                if (!action_client_->wait_for_action_server()) {
+                    RCLCPP_ERROR(this->get_logger(), "Action server not available");
+                    return;
+                }
 
-            auto goal_msg = Target::Goal();
-            goal_msg.goal_pose = {x_goal, y_goal, theta_goal};
+                cancel_sent_ = false;
 
-            message_custom::msg::GoalFrame frame_to_broad;
-            frame_to_broad.x_goal = x_goal;
-            frame_to_broad.y_goal = y_goal;
-            frame_to_broad.theta_goal = theta_goal;
+                auto goal_msg = Target::Goal();
+                goal_msg.goal_pose = {x_goal, y_goal, theta_goal};
 
-            goal_frame_broad_pub_-> publish(frame_to_broad);
+                message_custom::msg::GoalFrame frame_to_broad;
+                frame_to_broad.x_goal = x_goal;
+                frame_to_broad.y_goal = y_goal;
+                frame_to_broad.theta_goal = theta_goal;
 
-            using namespace std::placeholders;
+                goal_frame_broad_pub_-> publish(frame_to_broad);
 
-            rclcpp_action::Client<Target>::SendGoalOptions options;
+                using namespace std::placeholders;
 
-            options.goal_response_callback = std::bind(&RobotActionClient::goal_response_callback, this, _1);
+                rclcpp_action::Client<Target>::SendGoalOptions options;
 
-            options.feedback_callback =std::bind(&RobotActionClient::feedback_callback, this, _1, _2);
+                options.goal_response_callback = std::bind(&RobotActionClient::goal_response_callback, this, _1);
 
-            options.result_callback = std::bind(&RobotActionClient::result_callback, this, _1);
+                options.feedback_callback =std::bind(&RobotActionClient::feedback_callback, this, _1, _2);
 
-            action_client_->async_send_goal(goal_msg, options); 
-        }
+                options.result_callback = std::bind(&RobotActionClient::result_callback, this, _1);
 
-    private:
-
-        void goal_response_callback(GoalHandleTarget::SharedPtr goal_handle){
-            if (!goal_handle) {
-                RCLCPP_INFO(this->get_logger(), "Goal rejected");
-                return;
+                action_client_->async_send_goal(goal_msg, options); 
             }
 
-            RCLCPP_INFO(this->get_logger(), "Goal accepted");
-            current_goal_handle_ = goal_handle;
-        }
+        private:
 
-        void feedback_callback(GoalHandleTarget::SharedPtr,const std::shared_ptr<const Target::Feedback> feedback){
-            double remaining_x = feedback->current_pose[0];
-            double remaining_y = feedback->current_pose[1];
+            void goal_response_callback(GoalHandleTarget::SharedPtr goal_handle){
+                if (!goal_handle) {
+                    RCLCPP_INFO(this->get_logger(), "Goal rejected");
+                    return;
+                }
 
-            RCLCPP_INFO(this->get_logger(),"Feedback: remaining x = %f, remaining y = %f",remaining_x, remaining_y);
-
-            if (cancel_sent_ || !current_goal_handle_) {
-                return;
+                RCLCPP_INFO(this->get_logger(), "Goal accepted");
+                current_goal_handle_ = goal_handle;
             }
 
-            if (remaining_x <= 0.004 && remaining_y <= 0.004) {
-                cancel_sent_ = true;
-                RCLCPP_WARN(this->get_logger(),"GOAL reached");
+            void feedback_callback(GoalHandleTarget::SharedPtr,const std::shared_ptr<const Target::Feedback> feedback){
+                double remaining_x = feedback->current_pose[0];
+                double remaining_y = feedback->current_pose[1];
 
-                action_client_->async_cancel_goal(current_goal_handle_);
+                RCLCPP_INFO(this->get_logger(),"Feedback: remaining x = %f, remaining y = %f",remaining_x, remaining_y);
             }
 
-        }
+            void result_callback(const GoalHandleTarget::WrappedResult & result){
 
-        void result_callback(const GoalHandleTarget::WrappedResult & result){
+                RCLCPP_INFO(this->get_logger(),"Result status=%d, x_=%f, y_= %f",result.code,result.result->final_pose[0],result.result->final_pose[1]);
 
-            RCLCPP_INFO(this->get_logger(),"Result status=%d, delta=%f",result.code,result.result->final_pose[0]);
+            }
 
-            //rclcpp::shutdown();
-        }
+            //PUBLISHER
+            rclcpp::Publisher<message_custom::msg::GoalFrame>::SharedPtr goal_frame_broad_pub_;
 
-        //PUBLISHER
-        rclcpp::Publisher<message_custom::msg::GoalFrame>::SharedPtr goal_frame_broad_pub_;
+            //CLIENT
+            rclcpp_action::Client<Target>::SharedPtr action_client_;
 
-        //CLIENT
-        rclcpp_action::Client<Target>::SharedPtr action_client_;
+            //VARIABLES
+            GoalHandleTarget::SharedPtr current_goal_handle_;
+            bool cancel_sent_;
+            double input;
 
-        //VARIABLES
-        GoalHandleTarget::SharedPtr current_goal_handle_;
-        bool cancel_sent_;
-        double input;
+    };
+}
 
-};
+RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionClient)
 
-int main(int argc, char ** argv){
+/*int main(int argc, char ** argv){
     rclcpp::init(argc, argv);
 
     // Crea il nodo client
@@ -136,7 +132,7 @@ int main(int argc, char ** argv){
 
     //rclcpp::shutdown();
     return 0;
-}
+}*/
 
 
 
