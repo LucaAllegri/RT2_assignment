@@ -25,28 +25,14 @@ def generate_launch_description():
         )
     )
     
-    #ACTION CLIENT NODE
-    client_node = Node(
+    #USER INTERFACE NODE
+    user_interface_node = Node(
         package='robot_controller',
-        executable='action_client',
-        name='client',
+        executable='manual_component',
+        name='user_interface',
         output='screen',
-        prefix='xterm -title "ACTION CLIENT" -e',
+        prefix='xterm -title "UI" -e',
     )
-    
-    #ACTION SERVER NODE
-    server_node = Node(
-        package='robot_controller',
-        executable='action_server',
-        name='server',
-        output='screen', 
-        prefix='xterm -title "ACTION SERVER" -e',
-        parameters=[{
-                'target_frame_name': LaunchConfiguration('target_frame_name'),
-                'world_frame_name': LaunchConfiguration('world_frame_name')
-            }]
-    )
-
 
     container = ComposableNodeContainer(
             name='robot_container',
@@ -95,6 +81,7 @@ def generate_launch_description():
         ),
 
         gazebo_launch,
-        container,
+        #container,
+        user_interface_node,
         
     ])
