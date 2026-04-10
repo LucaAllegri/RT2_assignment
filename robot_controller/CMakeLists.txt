@@ -12,6 +12,7 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 if(BUILD_TESTING)
+  include_directories(include)
   find_package(ament_lint_auto REQUIRED)
   find_package(rclcpp REQUIRED)
   find_package(rclcpp_action REQUIRED)
@@ -25,6 +26,11 @@ if(BUILD_TESTING)
   add_library(client_component SHARED src/action_client.cpp)
   add_library(server_component SHARED src/action_server.cpp)
   add_executable(manual_composition src/manual_composition.cpp)
+
+  target_link_libraries(manual_composition 
+    client_component 
+    server_component
+  )
 
   ament_target_dependencies(client_component rclcpp rclcpp_action rclcpp_components geometry_msgs action_interfaces tf2 tf2_ros)
   ament_target_dependencies(server_component rclcpp rclcpp_action rclcpp_components geometry_msgs action_interfaces tf2 tf2_ros nav_msgs)

@@ -81,7 +81,7 @@ def generate_launch_description():
         ),
 
         gazebo_launch,
-        #container,
+        container,
         user_interface_node,
         
     ])
