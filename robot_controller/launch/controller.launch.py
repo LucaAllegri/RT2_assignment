@@ -47,16 +47,6 @@ def generate_launch_description():
             }]
     )
 
-    #BROADCASTER NODE
-    broadcaster_node = Node(
-        package='robot_controller',
-        executable='broadcaster',
-        name='broadcaster',
-        parameters=[{
-                'target_frame_name': LaunchConfiguration('target_frame_name'),
-                'moved_frame_name': LaunchConfiguration('moved_frame_name')
-            }]
-    )
 
     container = ComposableNodeContainer(
             name='robot_container',
@@ -68,18 +58,21 @@ def generate_launch_description():
                     package='robot_controller',
                     plugin='robot_controller::RobotActionClient',
                     name='client',
+                    parameters=[{
+                        'target_frame_name': LaunchConfiguration('target_frame_name'),
+                        'world_frame_name': LaunchConfiguration('world_frame_name'),
+                    }],
                     ),
                     
                 ComposableNode(
                     package='robot_controller',
                     plugin='robot_controller::RobotActionServer',
                     name='server',
-                    ),
-
-                ComposableNode(
-                    package='robot_controller',
-                    plugin='robot_controller::FramesPublisher',
-                    name='broadcaster',
+                    parameters=[{
+                        'target_frame_name': LaunchConfiguration('target_frame_name'),
+                        'world_frame_name': LaunchConfiguration('world_frame_name'),
+                        'moved_frame_name': LaunchConfiguration('moved_frame_name'),
+                    }],
                     ),
             ],
             output='screen',
@@ -89,22 +82,19 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'world_frame_name', 
             default_value='odom',
-            description='World frame name'
         ),
 
         DeclareLaunchArgument(
             'moved_frame_name', 
             default_value='base_link',
-            description='Moved frame name'
         ),
 
         DeclareLaunchArgument(
             'target_frame_name', 
             default_value='goal_frame',
-            description='Target frame name'
         ),
 
-
-        container
+        gazebo_launch,
+        container,
         
     ])

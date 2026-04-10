@@ -1,13 +1,19 @@
 #include <memory>
 #include <functional>
+#include <string>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
+#include "geometry_msgs/msg/transform_stamped.hpp"
+
 #include "action_interfaces/action/target.hpp"
 
-#include "message_custom/msg/goal_frame.hpp"
+#include "tf2/LinearMath/Quaternion.hpp"
+#include "tf2_ros/static_transform_broadcaster.h"
+
+using namespace std::placeholders;
 
 
 namespace robot_controller{
@@ -21,7 +27,10 @@ namespace robot_controller{
 
                 action_client_ = rclcpp_action::create_client<Target>(this, "target");
 
-                goal_frame_broad_pub_ = this->create_publisher<message_custom::msg::GoalFrame>("/goal_frame", 10);
+                static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+        
+                goal_frame_name_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
+                world_frame_name_ = this->declare_parameter<std::string>("world_frame_name", "odom");
             }
 
             void send_goal(double x_goal, double y_goal, double theta_goal){
@@ -30,19 +39,29 @@ namespace robot_controller{
                     return;
                 }
 
+                geometry_msgs::msg::TransformStamped t;
+
+                t.header.stamp = this->get_clock()->now();
+                t.header.frame_id = world_frame_name_;
+                t.child_frame_id = goal_frame_name_;
+
+                t.transform.translation.x = x_goal;
+                t.transform.translation.y = y_goal;
+                t.transform.translation.z = 0.0;
+
+                tf2::Quaternion q;
+                q.setRPY(0, 0, theta_goal);
+                t.transform.rotation.x = q.x();
+                t.transform.rotation.y = q.y();
+                t.transform.rotation.z = q.z();
+                t.transform.rotation.w = q.w();
+
+                static_broadcaster_->sendTransform(t);
+
                 cancel_sent_ = false;
 
                 auto goal_msg = Target::Goal();
                 goal_msg.goal_pose = {x_goal, y_goal, theta_goal};
-
-                message_custom::msg::GoalFrame frame_to_broad;
-                frame_to_broad.x_goal = x_goal;
-                frame_to_broad.y_goal = y_goal;
-                frame_to_broad.theta_goal = theta_goal;
-
-                goal_frame_broad_pub_-> publish(frame_to_broad);
-
-                using namespace std::placeholders;
 
                 rclcpp_action::Client<Target>::SendGoalOptions options;
 
@@ -60,79 +79,32 @@ namespace robot_controller{
             void goal_response_callback(GoalHandleTarget::SharedPtr goal_handle){
                 if (!goal_handle) {
                     RCLCPP_INFO(this->get_logger(), "Goal rejected");
-                    return;
+                } else {
+                    RCLCPP_INFO(this->get_logger(), "Goal accepted");
                 }
-
-                RCLCPP_INFO(this->get_logger(), "Goal accepted");
-                current_goal_handle_ = goal_handle;
             }
 
             void feedback_callback(GoalHandleTarget::SharedPtr,const std::shared_ptr<const Target::Feedback> feedback){
-                double remaining_x = feedback->current_pose[0];
-                double remaining_y = feedback->current_pose[1];
-
-                RCLCPP_INFO(this->get_logger(),"Feedback: remaining x = %f, remaining y = %f",remaining_x, remaining_y);
+                RCLCPP_INFO(this->get_logger(),"Feedback: remaining x = %f, remaining y = %f",feedback->current_pose[0], feedback->current_pose[1]);
             }
 
             void result_callback(const GoalHandleTarget::WrappedResult & result){
-
                 RCLCPP_INFO(this->get_logger(),"Result status=%d, x_=%f, y_= %f",result.code,result.result->final_pose[0],result.result->final_pose[1]);
-
             }
-
-            //PUBLISHER
-            rclcpp::Publisher<message_custom::msg::GoalFrame>::SharedPtr goal_frame_broad_pub_;
 
             //CLIENT
             rclcpp_action::Client<Target>::SharedPtr action_client_;
 
+            //BROADCASTER
+            std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
+            
             //VARIABLES
-            GoalHandleTarget::SharedPtr current_goal_handle_;
+            std::string world_frame_name_;
+            std::string goal_frame_name_;
             bool cancel_sent_;
-            double input;
-
     };
 }
 
 RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionClient)
-
-/*int main(int argc, char ** argv){
-    rclcpp::init(argc, argv);
-
-    // Crea il nodo client
-    auto node = std::make_shared<RobotActionClient>();
-
-    double x_target, y_target, theta_target;
-
-    std::cout << "insert x target: ";
-    if (!(std::cin >> x_target)) {
-        std::cout << "Invalid input.\n";
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    }
-
-    std::cout << "insert y target: ";
-    if (!(std::cin >> y_target)) {
-        std::cout << "Invalid input.\n";
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    }
-
-    std::cout << "insert theta target: ";
-    if (!(std::cin >> theta_target)) {
-        std::cout << "Invalid input.\n";
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    }
-
-    node->send_goal(x_target,y_target,theta_target);
-
-    // Spin per qualche tempo per inviare goal e ricevere feedback
-    rclcpp::spin(node);
-
-    //rclcpp::shutdown();
-    return 0;
-}*/
-
 
 

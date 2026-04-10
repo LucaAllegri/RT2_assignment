@@ -2,6 +2,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <math.h>
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -10,13 +11,14 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
+#include "nav_msgs/msg/odometry.hpp"
+
+#include "tf2_ros/static_transform_broadcaster.h"
 #include "tf2/exceptions.hpp"
 #include "tf2_ros/transform_listener.hpp"
 #include "tf2_ros/buffer.hpp"
 
 #include "action_interfaces/action/target.hpp"
-
-#include <math.h>
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -36,9 +38,16 @@ namespace robot_controller{
                 //PUBLISHERS
                 robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
+                //SUBSCRIBERS
+                odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&RobotActionServer::odom_callback, this, std::placeholders::_1));
+
+                //BROADCASTER
+                tf_broadcaster_ = std::make_unique<tf2_ros::StaticTransformBroadcaster>(this);
+
                 //PARAMETERS
                 goal_frame_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
                 moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_link");
+                world_frame_ = this->declare_parameter<std::string>("world_frame_name", "odom");
                 
                 //ACTION
                 action_server_ = rclcpp_action::create_server<Target>(
@@ -55,6 +64,22 @@ namespace robot_controller{
             }
 
         private:
+
+            void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
+                geometry_msgs::msg::TransformStamped t;
+
+                t.header.stamp = this->get_clock()->now();
+                t.header.frame_id = world_frame_; 
+                t.child_frame_id = moved_frame_;
+
+                t.transform.translation.x = msg->pose.pose.position.x;
+                t.transform.translation.y = msg->pose.pose.position.y;
+                t.transform.translation.z = msg->pose.pose.position.z;
+
+                t.transform.rotation = msg->pose.pose.orientation;
+
+                tf_broadcaster_->sendTransform(t);
+            }
 
             rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID &, std::shared_ptr<const Target::Goal> goal){
                 RCLCPP_INFO(this->get_logger(), "Received Goal: %.2f, %.2f, %.2f", goal->goal_pose[0], goal->goal_pose[1], goal->goal_pose[2]);
@@ -122,39 +147,34 @@ namespace robot_controller{
 
                     float x_ = t.transform.translation.x;
                     float y_ = t.transform.translation.y;
-
-                    velocity.angular.z = scaleRotationRate * atan2(
-                    y_,
-                    x_);
-
-                    velocity.linear.x = scaleForwardSpeed * sqrt(
-                    pow(x_, 2) +
-                    pow(y_, 2));
-
-                    robot_vel_pub->publish(velocity);
-
-                    double distance = sqrt(
-                        pow(x_, 2) +
-                        pow(y_, 2));
+                    double distance = sqrt(pow(x_, 2) + pow(y_, 2));
                     
                     if (distance < 0.01) {
                         stop_robot();
                         result->final_pose={x_, y_, 0.0};
                         goal_handle->succeed(result);
                         return;
-                    }else{
-                        feedback->current_pose = {x_, y_, 0.0};
-                        goal_handle->publish_feedback(feedback);
                     }
 
+                    velocity.angular.z = scaleRotationRate * atan2(y_,x_);
+                    velocity.linear.x = scaleForwardSpeed * sqrt(pow(x_, 2) +pow(y_, 2));
+                    robot_vel_pub->publish(velocity);
+
+                    feedback->current_pose = {x_, y_, 0.0};
+                    goal_handle->publish_feedback(feedback);
                     rate.sleep();
                 }
             }
 
-
             //PUBLISHER
             rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr robot_vel_pub{nullptr};
             
+            //SUBSCRIBER
+            rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+
+            //BROADCASTER
+            std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_broadcaster_;
+
             //ACTION
             rclcpp_action::Server<Target>::SharedPtr action_server_;
 
@@ -168,15 +188,7 @@ namespace robot_controller{
             //PARAMETERS
             std::string moved_frame_;
             std::string goal_frame_;
+            std::string world_frame_;
     };
 }
-
-/*int main(int argc, char * argv[]){
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<RobotActionServer>());
-    rclcpp::shutdown();
-    return 0;
-}*/
-
 RCLCPP_COMPONENTS_REGISTER_NODE(robot_controller::RobotActionServer)
-
