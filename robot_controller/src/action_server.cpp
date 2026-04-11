@@ -140,7 +140,7 @@ namespace robot_controller{
             
             if (distance < 0.01) {
                 stop_robot();
-                result->final_pose={x_, y_, 0.0};
+                result->final_pose={x_, y_, distance};
                 goal_handle->succeed(result);
                 return;
             }

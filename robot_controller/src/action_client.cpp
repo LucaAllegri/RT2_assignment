@@ -80,8 +80,8 @@ namespace robot_controller{
     void RobotActionClient::result_callback(const GoalHandleTarget::WrappedResult & result){
         switch (result.code) {
             case rclcpp_action::ResultCode::SUCCEEDED:
-                RCLCPP_INFO(this->get_logger(), "GOAL RAGGIUNTO! Final Pose: x=%.3f, y=%.3f",
-                    result.result->final_pose[0], result.result->final_pose[1]);
+                RCLCPP_INFO(this->get_logger(), "GOAL RAGGIUNTO! Final Pose: distance=%.3f, x=%.3f, y=%.3f",
+                    result.result->final_pose[2],result.result->final_pose[0], result.result->final_pose[1]);
                 break;
             case rclcpp_action::ResultCode::CANCELED:
                 RCLCPP_WARN(this->get_logger(), "Goal Cancelled.");
