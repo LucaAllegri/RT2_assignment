@@ -28,7 +28,7 @@ def generate_launch_description():
     #USER INTERFACE NODE
     user_interface_node = Node(
         package='robot_controller',
-        executable='manual_component',
+        executable='manual_composition',
         name='user_interface',
         output='screen',
         prefix='xterm -title "UI" -e',

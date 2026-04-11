@@ -5,9 +5,9 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
-void check_input(double &i) { // Passaggio per riferimento necessario per aggiornare il valore!
+void check_input(double &i) {
     while (!(std::cin >> i)) {
-        std::cout << "Input non valido. Inserisci un numero: ";
+        std::cout << "Invalid Input. Insert a number: ";
         std::cin.clear();
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }

@@ -5,9 +5,9 @@
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
 
-#include "tf2/LinearMath/Quaternion.hpp"
-
 #include "robot_controller/action_client.hpp"
+
+#include "tf2/LinearMath/Quaternion.hpp"
 
 using namespace std::placeholders;
 
@@ -74,11 +74,22 @@ namespace robot_controller{
     }
 
     void RobotActionClient::feedback_callback(GoalHandleTarget::SharedPtr,const std::shared_ptr<const Target::Feedback> feedback){
-        RCLCPP_INFO(this->get_logger(),"Feedback: remaining x = %f, remaining y = %f",feedback->current_pose[0], feedback->current_pose[1]);
+        RCLCPP_INFO(this->get_logger(),"Feedback: distance= %f, x = %f, y = %f", feedback->current_pose[2], feedback->current_pose[0], feedback->current_pose[1]);
     }
 
     void RobotActionClient::result_callback(const GoalHandleTarget::WrappedResult & result){
-        RCLCPP_INFO(this->get_logger(),"Result status=%d, x_=%f, y_= %f",result.code,result.result->final_pose[0],result.result->final_pose[1]);
+        switch (result.code) {
+            case rclcpp_action::ResultCode::SUCCEEDED:
+                RCLCPP_INFO(this->get_logger(), "GOAL RAGGIUNTO! Final Pose: x=%.3f, y=%.3f",
+                    result.result->final_pose[0], result.result->final_pose[1]);
+                break;
+            case rclcpp_action::ResultCode::CANCELED:
+                RCLCPP_WARN(this->get_logger(), "Goal Cancelled.");
+                break;
+            case rclcpp_action::ResultCode::ABORTED:
+                RCLCPP_ERROR(this->get_logger(), "Goal Failed.");
+                break;
+        }
     }
 
 }

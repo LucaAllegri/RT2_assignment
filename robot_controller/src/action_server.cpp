@@ -3,13 +3,15 @@
 #include <string>
 #include <math.h>
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 #include "geometry_msgs/msg/transform_stamped.hpp"
 
-#include "rclcpp_components/register_node_macro.hpp"
+#include "robot_controller/action_server.hpp"
 
 #include "tf2/exceptions.hpp"
 
-#include "robot_controller/action_server.hpp"
+
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -19,19 +21,28 @@ using namespace std::chrono_literals;
 namespace robot_controller{
 
     RobotActionServer::RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
+
         //PUBLISHERS
         robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
         //SUBSCRIBERS
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&RobotActionServer::odom_callback, this, std::placeholders::_1));
 
-        //BROADCASTER
-        tf_broadcaster_ = std::make_unique<tf2_ros::StaticTransformBroadcaster>(this);
-
         //PARAMETERS
         goal_frame_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
         moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_link");
         world_frame_ = this->declare_parameter<std::string>("world_frame_name", "odom");
+
+        //BROADCASTER
+        tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+
+        //initialization odom frame to visualize it when RVIZ2 is opened the first time
+        geometry_msgs::msg::TransformStamped t_init;
+        t_init.header.stamp = this->get_clock()->now();
+        t_init.header.frame_id = world_frame_;  
+        t_init.child_frame_id = moved_frame_;    
+        t_init.transform.rotation.w = 1.0;      
+        tf_broadcaster_->sendTransform(t_init);
         
         //ACTION
         action_server_ = rclcpp_action::create_server<Target>(
@@ -40,7 +51,6 @@ namespace robot_controller{
             std::bind(&RobotActionServer::handle_goal, this, _1, _2),
             std::bind(&RobotActionServer::handle_cancel, this, _1),
             std::bind(&RobotActionServer::handle_accepted, this, _1));
-
 
         //LISTENER
         tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -76,7 +86,6 @@ namespace robot_controller{
     }
 
     void RobotActionServer::handle_accepted(const std::shared_ptr<GoalHandleTarget> goal_handle){
-        // this needs to return quickly to avoid blocking the executor, so spin up a new thread
         std::thread{std::bind(&RobotActionServer::execute, this, _1), goal_handle}.detach();
     }
 
@@ -111,8 +120,6 @@ namespace robot_controller{
 
             geometry_msgs::msg::TransformStamped t;
 
-            // Look up for the transformation between target_frame and turtle2 frames
-            // and send velocity commands for turtle2 to reach target_frame
             try {
             t = tf_buffer_->lookupTransform(
                 moved_frame_,
@@ -142,7 +149,7 @@ namespace robot_controller{
             velocity.linear.x = scaleForwardSpeed * sqrt(pow(x_, 2) +pow(y_, 2));
             robot_vel_pub->publish(velocity);
 
-            feedback->current_pose = {x_, y_, 0.0};
+            feedback->current_pose = {x_, y_, distance};
             goal_handle->publish_feedback(feedback);
             rate.sleep();
         }
