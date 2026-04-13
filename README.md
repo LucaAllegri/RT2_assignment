@@ -39,10 +39,10 @@ robot_controller/
 `action_client.hpp` and `action_server.hpp` to declare the two classes `RobotActionClient` and `RobotActionServer` with all class name, methods and members. This separation allows manual_composition.cpp to instantiate both nodes knowing only their interface, without including the full implementation. <br>
 
 **Source Files** - `src/`
-  - **1) `action_client.cpp` - `RobotActionClient`**
+  - **1) `action_client.cpp` - `RobotActionClient`**<br>
     It is the node that manages user input and sends navigation goals. This node:
     - creates the action client connected to the target action server;
-    - in `send_goal()`, publishes a static TF transform from `odom` → `goal_frame` with the requested x, y, theta, making the target visible in RViz;
+    - in `send_goal()`, publishes a static TF transform from `odom` → `goal_frame` with the requested (x, y, theta) making the target visible in RViz;
     - sends the goal asynchronously
     - `goal_response_callback` — logs whether the goal was accepted or rejected by the server;
     - `feedback_callback` — logs the current relative position and distance received during navigation;
@@ -52,7 +52,7 @@ robot_controller/
 </div>
       <br>
       
-  - **2) `action_server.cpp` - `RobotActionServer`**
+  - **2) `action_server.cpp` - `RobotActionServer`**<br>
     It is the node that implements the full navigation logic of the robot. This node:
     - subscribes to `/odom` and in `odom_callback` broadcasts a dynamic TF transform from `odom` → `base_link`, keeping the robot's position continuously updated in the TF tree;
     - uses a TF2 listener + buffer to look up the transform from `base_link` → `goal_frame` at each control loop iteration, obtaining the relative error vector (x, y);
@@ -65,7 +65,7 @@ robot_controller/
       - stops the robot when distance < 0.01 m;
       - checks for cancellation at every iteration, stopping the robot cleanly if requested.
       <br>
-  - **3) `manual_composition.cpp` — Standalone**
+  - **3) `manual_composition.cpp` — Standalone**<br>
     This is the entry point of the `manual_composition` executable: instead of relying on ROS 2's dynamic composition system (which loads plugins via `component_container` at runtime), here the composition happens manually and statically in code.
     - Instantiates both nodes and adds them to the same executor — both RobotActionClient and RobotActionServer live in the same process under a SingleThreadedExecutor, exactly as they would inside a `component_container`
     - Collects user input before spinning
@@ -98,7 +98,7 @@ The navigation relies on three TF frames:
 | `goal_frame` | `RobotActionClient` (static) | Target position set by the user |
 
 <div align="center">
-  <img src="/image_readme/frame_tree.png" alt="Frame Tree" width="500"/>
+  <img src="/image_readme/frame_tree.png" alt="Frame Tree" width="650"/>
 </div>
 
  The server looks up the transform `base_link → goal_frame` at each control loop iteration. When this transform's translation norm is below the threshold, the goal is declared reached.
@@ -119,6 +119,8 @@ This command will open:
 - the **RViz** visualizer showing the TF frames and the robot
 - an **xterm** terminal window where the user can insert the target pose (x, y, theta)
 
-I suggest before insert the target goal in te user interface window, on RVIZ window
-- display -> add -> TF -> ok
-- fixed frame -> odom
+Before inserting the target goal in the user interface window, it is suggested on RVIZ window:
+- display $\rightarrow$ add $\rightarrow$ TF $\rightarrow$ ok
+- fixed frame $\rightarrow$ odom
+
+In this way it is possible to see the robot's motion from the point of view of the world (odom).
