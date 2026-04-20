@@ -12,6 +12,7 @@
 
 #include "geometry_msgs/msg/twist.hpp"
 
+#include "tf2_ros/static_transform_broadcaster.h" 
 #include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/transform_listener.hpp"
 #include "tf2_ros/buffer.hpp"
@@ -43,6 +44,7 @@ namespace robot_controller {
             void execute(const std::shared_ptr<GoalHandleTarget> goal_handle);
         
             rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr robot_vel_pub{nullptr};
+            std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_broadcaster_;
             rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
             std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
             std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;

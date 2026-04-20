@@ -12,7 +12,6 @@
 #include "tf2/exceptions.hpp"
 
 
-
 using std::placeholders::_1;
 using std::placeholders::_2;
 
@@ -24,7 +23,6 @@ namespace robot_controller{
 
         //PUBLISHERS
         robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-
         //SUBSCRIBERS
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>("/odom", 10, std::bind(&RobotActionServer::odom_callback, this, std::placeholders::_1));
 
@@ -35,6 +33,22 @@ namespace robot_controller{
 
         //BROADCASTER
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+        static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+
+        // STATIC TRANSFORM BASE_FOOTPRINT -> BASE_LINK
+        geometry_msgs::msg::TransformStamped static_tf;
+        static_tf.header.stamp = this->get_clock()->now();
+        static_tf.header.frame_id = "base_footprint";
+        static_tf.child_frame_id = "base_link";
+        static_tf.transform.translation.x = 0.0;
+        static_tf.transform.translation.y = 0.0;
+        static_tf.transform.translation.z = 0.0;
+        static_tf.transform.rotation.x = 0.0;
+        static_tf.transform.rotation.y = 0.0;
+        static_tf.transform.rotation.z = 0.0;
+        static_tf.transform.rotation.w = 1.0;
+        static_broadcaster_->sendTransform(static_tf);
+
 
         //initialization odom frame to visualize it when RVIZ2 is opened the first time
         geometry_msgs::msg::TransformStamped t_init;
@@ -138,20 +152,40 @@ namespace robot_controller{
             float y_ = t.transform.translation.y;
             double distance = sqrt(pow(x_, 2) + pow(y_, 2));
             
-            if (distance < 0.01) {
-                stop_robot();
-                result->final_pose={x_, y_, distance};
-                goal_handle->succeed(result);
-                return;
+            // ALLINEAMENTO AL GOAL
+            if (distance >= 0.01) {
+                velocity.angular.z = scaleRotationRate * atan2(y_, x_);
+                velocity.linear.x  = scaleForwardSpeed * distance;
+                robot_vel_pub->publish(velocity);
+
+                feedback->current_pose = {x_, y_, distance};
+                goal_handle->publish_feedback(feedback);
+                rate.sleep();
+                continue;
             }
 
-            velocity.angular.z = scaleRotationRate * atan2(y_,x_);
-            velocity.linear.x = scaleForwardSpeed * sqrt(pow(x_, 2) +pow(y_, 2));
-            robot_vel_pub->publish(velocity);
+            // ALLINEAMENTO ANGOLARE
+            double qz = t.transform.rotation.z;
+            double qw = t.transform.rotation.w;
+            double yaw_error = 2.0 * atan2(qz, qw);  // angolo residuo in radianti
 
-            feedback->current_pose = {x_, y_, distance};
-            goal_handle->publish_feedback(feedback);
-            rate.sleep();
+            if (fabs(yaw_error) > 0.01) {
+                velocity.linear.x  = 0.0;
+                velocity.angular.z = scaleRotationRate * yaw_error;
+                robot_vel_pub->publish(velocity);
+
+                feedback->current_pose = {x_, y_, distance};
+                goal_handle->publish_feedback(feedback);
+                rate.sleep();
+                continue;
+            }
+
+            // GOAL RAGGIUNTO
+            stop_robot();
+            result->final_pose = {x_, y_, distance};
+            goal_handle->succeed(result);
+            RCLCPP_INFO(this->get_logger(), "Goal raggiunto con orientazione corretta!");
+            return;
         }
     }
 }
