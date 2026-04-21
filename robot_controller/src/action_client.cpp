@@ -18,10 +18,39 @@ namespace robot_controller{
 
         action_client_ = rclcpp_action::create_client<Target>(this, "target");
 
+        goal_sub = this->create_subscription<std_msgs::msg::Float64MultiArray>( "goal_topic", 10, std::bind(&RobotActionClient::goal_topic_callback, this, std::placeholders::_1));
+        cancel_sub_ = this->create_subscription<std_msgs::msg::Bool>("cancel_topic", 10, std::bind(&RobotActionClient::cancel_callback, this, std::placeholders::_1));
+        status_pub_ = this->create_publisher<std_msgs::msg::String>("goal_status", 10);
+
         static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
         goal_frame_name_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
         world_frame_name_ = this->declare_parameter<std::string>("world_frame_name", "odom");
+    }
+
+    void RobotActionClient::cancel_callback(const std_msgs::msg::Bool::SharedPtr msg){
+        if (msg->data && !cancel_sent_) {
+            RCLCPP_WARN(this->get_logger(), "Invio richiesta cancel...");
+
+            action_client_->async_cancel_all_goals();
+
+            cancel_sent_ = true;
+        }
+    }
+
+    void RobotActionClient::goal_topic_callback(const std_msgs::msg::Float64MultiArray::SharedPtr msg){
+        if (msg->data.size() != 3) {
+            RCLCPP_WARN(this->get_logger(), "Invalid goal received");
+            return;
+        }
+
+        double x = msg->data[0];
+        double y = msg->data[1];
+        double theta = msg->data[2];
+
+        RCLCPP_INFO(this->get_logger(), "Ricevuto goal da UI");
+
+        send_goal(x, y, theta);
     }
 
     void RobotActionClient::send_goal(double x_goal, double y_goal, double theta_goal){
@@ -78,16 +107,27 @@ namespace robot_controller{
     }
 
     void RobotActionClient::result_callback(const GoalHandleTarget::WrappedResult & result){
+
+        std_msgs::msg::String status_msg;
+
         switch (result.code) {
+
             case rclcpp_action::ResultCode::SUCCEEDED:
-                RCLCPP_INFO(this->get_logger(), "GOAL RAGGIUNTO! Final Pose: distance=%.3f, x=%.3f, y=%.3f",
+                RCLCPP_INFO(this->get_logger(), "GOAL REACHED! Final Pose: distance=%.3f, x=%.3f, y=%.3f",
                     result.result->final_pose[2],result.result->final_pose[0], result.result->final_pose[1]);
+
+                status_msg.data = "SUCCEEDED";
+                status_pub_->publish(status_msg);
                 break;
             case rclcpp_action::ResultCode::CANCELED:
                 RCLCPP_WARN(this->get_logger(), "Goal Cancelled.");
+                status_msg.data = "CANCELLED";
+                status_pub_->publish(status_msg);
                 break;
             case rclcpp_action::ResultCode::ABORTED:
                 RCLCPP_ERROR(this->get_logger(), "Goal Failed.");
+                status_msg.data = "ABORTED";
+                status_pub_->publish(status_msg);
                 break;
         }
     }

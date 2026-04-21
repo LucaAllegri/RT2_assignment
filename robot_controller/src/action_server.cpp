@@ -28,7 +28,7 @@ namespace robot_controller{
 
         //PARAMETERS
         goal_frame_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
-        moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_link");
+        moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_footprint");
         world_frame_ = this->declare_parameter<std::string>("world_frame_name", "odom");
 
         //BROADCASTER
@@ -152,7 +152,7 @@ namespace robot_controller{
             float y_ = t.transform.translation.y;
             double distance = sqrt(pow(x_, 2) + pow(y_, 2));
             
-            // ALLINEAMENTO AL GOAL
+            // GOAL ALLINEAMENT
             if (distance >= 0.01) {
                 velocity.angular.z = scaleRotationRate * atan2(y_, x_);
                 velocity.linear.x  = scaleForwardSpeed * distance;
@@ -164,10 +164,10 @@ namespace robot_controller{
                 continue;
             }
 
-            // ALLINEAMENTO ANGOLARE
+            // ANGULAR ALLINEAMENT
             double qz = t.transform.rotation.z;
             double qw = t.transform.rotation.w;
-            double yaw_error = 2.0 * atan2(qz, qw);  // angolo residuo in radianti
+            double yaw_error = 2.0 * atan2(qz, qw); 
 
             if (fabs(yaw_error) > 0.01) {
                 velocity.linear.x  = 0.0;
@@ -184,7 +184,7 @@ namespace robot_controller{
             stop_robot();
             result->final_pose = {x_, y_, distance};
             goal_handle->succeed(result);
-            RCLCPP_INFO(this->get_logger(), "Goal raggiunto con orientazione corretta!");
+            RCLCPP_INFO(this->get_logger(), "Goal Reached");
             return;
         }
     }
