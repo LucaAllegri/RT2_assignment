@@ -28,7 +28,7 @@ namespace robot_controller{
 
         //PARAMETERS
         goal_frame_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
-        moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_footprint");
+        moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_link");
         world_frame_ = this->declare_parameter<std::string>("world_frame_name", "odom");
 
         //BROADCASTER
