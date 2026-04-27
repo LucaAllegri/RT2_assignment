@@ -73,7 +73,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument(
             'moved_frame_name', 
-            default_value='base_link',
+            default_value='base_footprint',
         ),
 
         DeclareLaunchArgument(
@@ -84,5 +84,4 @@ def generate_launch_description():
         gazebo_launch,
         container,
         user_interface_node,
-        
     ])

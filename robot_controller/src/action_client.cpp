@@ -16,14 +16,18 @@ namespace robot_controller{
 
     RobotActionClient::RobotActionClient(const rclcpp::NodeOptions & options) : Node("robot_action_client", options), cancel_sent_(false) {
 
+        //ACTION
         action_client_ = rclcpp_action::create_client<Target>(this, "target");
 
+        //SUBSCRIBERS
         goal_sub = this->create_subscription<std_msgs::msg::Float64MultiArray>( "goal_topic", 10, std::bind(&RobotActionClient::goal_topic_callback, this, std::placeholders::_1));
         cancel_sub_ = this->create_subscription<std_msgs::msg::Bool>("cancel_topic", 10, std::bind(&RobotActionClient::cancel_callback, this, std::placeholders::_1));
         status_pub_ = this->create_publisher<std_msgs::msg::String>("goal_status", 10);
 
+        //BROADCASTER
         static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
+        //PARAMETERS
         goal_frame_name_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
         world_frame_name_ = this->declare_parameter<std::string>("world_frame_name", "odom");
     }

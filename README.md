@@ -61,7 +61,7 @@ robot_controller/
       - moves forward proportionally to the remaining distance;
       - stops the robot when distance < 0.01 m;
       - checks for cancellation at every iteration, stopping the robot cleanly if requested.
-      <br>
+      
   - **3) `manual_composition.cpp` — User Interface**<br>
     This is the entry point of the `manual_composition` executable. It provides an interactive loop that allows the user to send multiple goals sequentially and cancel them at any time:
     - asks the user for x, y, theta target values;
@@ -85,7 +85,7 @@ Everything is started by a single launch file that brings up three elements simu
 </div>
 <br>
 
-**3) User Interface $\rightarrow$** manual_composition is launched as a standalone node in a dedicated xterm terminal (the "UI" window), where the user can type the target x, y, theta values interactively.<br>
+**3) User Interface $\rightarrow$** manual_composition is launched as a standalone node in a dedicated xterm terminal (the "UI" window), where the user can type the target x, y, theta values interactively, 'c' to canecl a goal or 'q' to quit.<br>
 
 <div align="center">
   <img src="/image_readme/user_input.png" alt="User Input" width="500"/>

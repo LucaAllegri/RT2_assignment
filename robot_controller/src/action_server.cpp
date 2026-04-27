@@ -20,7 +20,7 @@ using namespace std::chrono_literals;
 namespace robot_controller{
 
     RobotActionServer::RobotActionServer(const rclcpp::NodeOptions & options) : Node("robot_action_server", options){
-
+        
         //PUBLISHERS
         robot_vel_pub= this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
         //SUBSCRIBERS
@@ -28,27 +28,11 @@ namespace robot_controller{
 
         //PARAMETERS
         goal_frame_ = this->declare_parameter<std::string>("target_frame_name", "goal_frame");
-        moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_link");
+        moved_frame_ = this->declare_parameter<std::string>("moved_frame_name", "base_footprint");
         world_frame_ = this->declare_parameter<std::string>("world_frame_name", "odom");
 
         //BROADCASTER
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
-        static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
-
-        // STATIC TRANSFORM BASE_FOOTPRINT -> BASE_LINK
-        geometry_msgs::msg::TransformStamped static_tf;
-        static_tf.header.stamp = this->get_clock()->now();
-        static_tf.header.frame_id = "base_footprint";
-        static_tf.child_frame_id = "base_link";
-        static_tf.transform.translation.x = 0.0;
-        static_tf.transform.translation.y = 0.0;
-        static_tf.transform.translation.z = 0.0;
-        static_tf.transform.rotation.x = 0.0;
-        static_tf.transform.rotation.y = 0.0;
-        static_tf.transform.rotation.z = 0.0;
-        static_tf.transform.rotation.w = 1.0;
-        static_broadcaster_->sendTransform(static_tf);
-
 
         //initialization odom frame to visualize it when RVIZ2 is opened the first time
         geometry_msgs::msg::TransformStamped t_init;
@@ -74,7 +58,7 @@ namespace robot_controller{
     void RobotActionServer::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg){
         geometry_msgs::msg::TransformStamped t;
 
-        t.header.stamp = this->get_clock()->now();
+        t.header.stamp = msg->header.stamp;
         t.header.frame_id = world_frame_; 
         t.child_frame_id = moved_frame_;
 
